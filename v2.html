@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>MKT Laboratory EMR v4</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root { --crit:#be123c; --crit-bg:#fff1f2; --abn:#c2410c; --abn-bg:#fff7ed; }
+*{ box-sizing:border-box; }
+body{ font-family:'IBM Plex Sans Thai',sans-serif; background:#f8fafc; height:100vh; overflow:hidden; font-size:13px; }
+
+@keyframes critPulse{ 0%,100%{background:#fff1f2} 50%{background:#ffe4e6} }
+@keyframes blink{ 50%{opacity:0} }
+
+.critical{ color:var(--crit); font-weight:700; background:var(--crit-bg); animation:critPulse 2s ease-in-out infinite; }
+.abnormal{ color:var(--abn);  font-weight:700; background:var(--abn-bg); }
+.crit-badge{ background:var(--crit); color:#fff; font-size:8px; padding:1px 4px; border-radius:3px; font-weight:800; display:inline-flex; align-items:center; gap:2px; }
+.abn-badge { background:#f97316; color:#fff; font-size:8px; padding:1px 4px; border-radius:3px; font-weight:700; }
+
+/* ── sticky first col ── */
+.sticky-left{ position:sticky; left:0; background:#fff; z-index:10; border-right:2px solid #e2e8f0; }
+
+/* ── sidebar ── */
+.lab-item{ padding:5px 8px 6px 10px; border-bottom:1px solid #f1f5f9; transition:background .12s; }
+.lab-item:hover{ background:#f8fafc; }
+.hist-item{ background:#f8fafc!important; border-left:3px solid #94a3b8; opacity:.85; }
+.preview-item{ background:#eff6ff!important; border-right:3px solid #3b82f6; }
+.pinned-item{ background:#f0fdf4!important; border-left:3px solid #16a34a!important; }
+.grp-hdr{ background:linear-gradient(135deg,#1e293b,#334155); padding:4px 10px; font-size:9px; font-weight:700; color:#94a3b8; letter-spacing:.15em; text-transform:uppercase; }
+.hist-badge{ font-size:8px; background:#94a3b8; color:#fff; padding:1px 4px; border-radius:3px; font-weight:700; }
+
+/* ── timeline (inline) ── */
+.tl-inline{
+    font-family:'JetBrains Mono',monospace; font-size:8.5px; white-space:nowrap;
+    display:inline-flex; align-items:center; gap:3px; overflow:hidden; max-width:100%;
+}
+.tl-sep{ color:#475569; }
+.tl-node{ display:inline-flex; align-items:center; gap:2px; }
+.tl-dot{ width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+
+/* ── envelope ── */
+.env-btn{ font-size:14px; cursor:pointer; transition:transform .15s; padding:0 2px; flex-shrink:0; }
+.env-btn:hover{ transform:scale(1.25); }
+
+/* ── matrix table ── */
+.matrix-table th,.matrix-table td{ padding:6px 10px; }
+.col-today{ background:#eff6ff; }
+.col-today-hdr{ background:#dbeafe; color:#1d4ed8; }
+.col-empty{ color:#cbd5e1; }
+.val-cell{ font-family:'JetBrains Mono',monospace; font-weight:700; }
+.ref-cell{ font-family:'JetBrains Mono',monospace; font-size:10px; color:#64748b; }
+
+/* trend */
+.tbadge{ font-size:8.5px; font-family:'JetBrains Mono',monospace; padding:1px 4px; border-radius:3px; }
+.tbadge.up  { background:#fee2e2; color:#dc2626; }
+.tbadge.dn  { background:#dcfce7; color:#16a34a; }
+.tbadge.eq  { background:#f1f5f9; color:#64748b; }
+
+/* ── AI panel ── */
+.ai-panel{ background:linear-gradient(135deg,#0f172a,#1e293b); color:#e2e8f0; border-radius:14px; border:1px solid #334155; }
+.ai-chip{ background:linear-gradient(135deg,#6366f1,#8b5cf6); font-size:9px; color:#fff; padding:2px 8px; border-radius:20px; font-weight:700; }
+.ai-typing::after{ content:'▌'; animation:blink .7s step-end infinite; }
+
+/* ── summary strip ── */
+.sum-strip{ background:#0f172a; }
+
+/* ── graph ── */
+.g-card{ background:#fff; padding:12px; border-radius:12px; border:1px solid #e2e8f0; margin-bottom:12px; height:185px; }
+
+/* ── buttons ── */
+.btn-ai{ background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-radius:10px; padding:5px 13px; font-size:11px; font-weight:700; cursor:pointer; border:none; display:flex; align-items:center; gap:5px; transition:all .2s; }
+.btn-ai:hover{ transform:translateY(-1px); box-shadow:0 4px 12px rgba(99,102,241,.4); }
+.btn-ai:disabled{ opacity:.6; cursor:not-allowed; transform:none; }
+.btn-pt{ background:linear-gradient(135deg,#0ea5e9,#0284c7); color:#fff; border-radius:10px; padding:5px 13px; font-size:11px; font-weight:700; cursor:pointer; border:none; display:flex; align-items:center; gap:5px; transition:all .2s; }
+.btn-pt.active{ background:linear-gradient(135deg,#16a34a,#15803d); }
+
+/* row accent */
+.row-crit td:first-child{ border-left:3px solid var(--crit); }
+.row-abn  td:first-child{ border-left:3px solid #f97316; }
+
+/* dialog */
+.dlg-overlay{ background:rgba(15,23,42,.65); backdrop-filter:blur(4px); }
+
+::-webkit-scrollbar{ width:5px; height:5px; }
+::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:10px; }
+</style>
+</head>
+<body class="flex flex-col">
+
+<!-- ══ HEADER ══ -->
+<div class="bg-white border-b flex-shrink-0 shadow-sm z-10">
+  <div class="px-4 py-2 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <div class="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
+        <i class="fa-solid fa-flask text-white text-xs"></i>
+      </div>
+      <h1 class="text-blue-900 font-black text-base tracking-tight">MKT LAB EMR</h1>
+      <div class="h-5 w-px bg-slate-200"></div>
+      <div class="text-sm">
+        <span class="font-bold text-slate-800">คุณสมชาย ใจดี</span>
+        <span class="text-slate-400 mx-1">·</span><span class="text-slate-600 text-xs font-mono">54Y / M</span>
+        <span class="text-slate-400 mx-1">·</span><span class="text-slate-500 text-xs font-mono">HN: 001-25-000456</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="togglePtMode()" id="btnPt" class="btn-pt"><i class="fa-solid fa-user-doctor"></i><span>หันจออธิบายคนไข้</span></button>
+      <button onclick="runAI()" id="btnAI" class="btn-ai"><i class="fa-solid fa-robot"></i><span>AI วิเคราะห์ผล</span></button>
+    </div>
+  </div>
+  <div class="sum-strip px-4 py-1 flex items-center gap-4 text-xs">
+    <span class="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Summary</span>
+    <span id="sCrit" class="text-red-400 font-black">0 Critical</span>
+    <span class="text-slate-600">·</span>
+    <span id="sAbn"  class="text-orange-400 font-bold">0 Abnormal</span>
+    <span class="text-slate-600">·</span>
+    <span id="sNorm" class="text-green-400 font-bold">0 Normal</span>
+    <div id="critTags" class="flex gap-2 flex-wrap"></div>
+  </div>
+</div>
+
+<div class="flex flex-1 overflow-hidden">
+
+  <!-- ══ SIDEBAR ══ -->
+  <div class="w-72 bg-white border-r flex flex-col shadow-sm flex-shrink-0">
+    <div class="p-2.5 bg-slate-50 border-b flex flex-col gap-2">
+      <div class="flex justify-between items-center">
+        <span class="text-[10px] font-black text-blue-800 uppercase tracking-widest">Lab Orders</span>
+        <label class="flex items-center gap-1 cursor-pointer">
+          <span class="text-[9px] text-slate-500 font-bold">Show History</span>
+          <input type="checkbox" id="chkHistory" onchange="renderList()" class="h-3 w-3 text-blue-600 rounded">
+        </label>
+      </div>
+      <select id="selGroup" onchange="renderList()" class="w-full text-[10px] border border-slate-200 rounded-lg p-1.5 bg-white outline-none">
+        <option value="ALL">All Groups</option>
+        <option value="Hematology">Hematology</option>
+        <option value="BloodChem">Blood Chemistry</option>
+        <option value="Endocrine">Endocrine</option>
+        <option value="Immunology">Immunology</option>
+      </select>
+    </div>
+    <div id="orderList" class="overflow-y-auto flex-1"></div>
+  </div>
+
+  <!-- ══ MAIN ══ -->
+  <div class="flex-1 bg-slate-100 p-3 flex flex-col gap-3 overflow-hidden">
+
+    <!-- AI Panel -->
+    <div id="aiPanel" class="hidden ai-panel p-3 flex-shrink-0">
+      <div class="flex justify-between items-start mb-2">
+        <div class="flex items-center gap-2">
+          <span class="ai-chip"><i class="fa-solid fa-robot mr-1"></i>AI CLINICAL ASSISTANT</span>
+          <span class="text-slate-400 text-[9px]">Claude Sonnet · วิเคราะห์เชิงคลินิก</span>
+        </div>
+        <button onclick="closeAI()" class="text-slate-500 hover:text-white text-xs">✕</button>
+      </div>
+      <div id="aiResult" class="text-sm leading-relaxed text-slate-200 whitespace-pre-wrap"></div>
+      <p class="text-[9px] text-slate-600 mt-2 border-t border-slate-700 pt-1.5">⚠️ เป็นเพียงข้อมูลสนับสนุน แพทย์ผู้รักษาเป็นผู้วินิจฉัยหลักเสมอ</p>
+    </div>
+
+    <!-- Data Card -->
+    <div class="bg-white rounded-2xl shadow-md border border-slate-200 flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div class="p-2.5 border-b flex justify-between items-center flex-shrink-0">
+        <div class="flex gap-3 items-center">
+          <span class="font-black text-slate-700 text-xs uppercase tracking-wider">Clinical Data Matrix</span>
+          <div class="flex bg-slate-100 p-0.5 rounded-lg border">
+            <button onclick="switchView('table')" id="btnTbl" class="px-3 py-1 text-[10px] rounded-md bg-white shadow-sm font-bold text-blue-700">TABLE</button>
+            <button onclick="switchView('graph')" id="btnGph" class="px-3 py-1 text-[10px] rounded-md font-bold text-slate-400">GRAPH</button>
+          </div>
+        </div>
+        <div class="text-[9px] text-slate-400 font-mono flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-slate-300 inline-block"></span>
+          เซลล์ว่าง = ไม่ได้ตรวจวันนั้น &nbsp;·&nbsp; ↑↓ เทียบ Visit ก่อนหน้า
+        </div>
+      </div>
+
+      <!-- TABLE VIEW -->
+      <div id="tblView" class="flex-1 overflow-auto">
+        <table class="matrix-table w-full text-xs text-left border-collapse">
+          <thead id="tblHead" class="sticky top-0 z-20"></thead>
+          <tbody id="tblBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+
+      <!-- GRAPH VIEW -->
+      <div id="gphView" class="hidden flex-1 p-4 bg-slate-50 overflow-y-auto">
+        <div id="gphStack" class="max-w-4xl mx-auto"></div>
+      </div>
+
+      <!-- PATIENT VIEW -->
+      <div id="ptView" class="hidden flex-1 p-4 bg-gradient-to-br from-blue-50 to-green-50 overflow-y-auto">
+        <div class="max-w-xl mx-auto">
+          <div class="text-center mb-4">
+            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <i class="fa-solid fa-heart-pulse text-blue-600 text-lg"></i>
+            </div>
+            <h2 class="text-base font-black text-slate-800">ผลตรวจเลือดของคุณ</h2>
+            <p class="text-slate-500 text-xs mt-0.5">วันที่ 8 มีนาคม 2569 · คุณสมชาย ใจดี</p>
+          </div>
+          <div id="ptCards"></div>
+          <div id="ptAIBox" class="hidden mt-3 bg-white rounded-2xl border border-blue-100 p-4 shadow-sm">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fa-solid fa-comment-medical text-blue-500"></i>
+              <span class="font-bold text-slate-700 text-sm">คำอธิบายจาก AI</span>
+              <span class="ai-chip text-[8px]">AI</span>
+            </div>
+            <div id="ptAIText" class="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EMPTY -->
+      <div id="emptyState" class="flex-1 flex flex-col items-center justify-center text-slate-300 gap-2">
+        <i class="fa-solid fa-microscope text-5xl opacity-20"></i>
+        <p class="italic text-sm">เลือกรายการ Lab ในแถบซ้าย</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DETAIL DIALOG ══ -->
+<div id="dlg" class="fixed inset-0 dlg-overlay hidden flex items-center justify-center z-50">
+  <div class="bg-white rounded-3xl shadow-2xl w-[60%] max-h-[85vh] overflow-hidden border border-slate-100 flex flex-col">
+    <div id="dlgContent" class="p-6 overflow-y-auto flex-1"></div>
+    <div class="p-4 bg-slate-50 border-t flex justify-between items-center">
+      <span class="text-[10px] text-slate-400 italic"><i class="fa-solid fa-shield-halved mr-1"></i>ข้อมูลความลับทางการแพทย์</span>
+      <div class="flex gap-2">
+        <button onclick="window.print()" class="bg-white border border-slate-300 px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-slate-50"><i class="fa-solid fa-print mr-1"></i>Print</button>
+        <button onclick="closeDlg()" class="bg-slate-900 text-white px-5 py-1.5 rounded-xl text-xs font-bold hover:bg-black">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════════
+const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const TODAY_DATE = '08/03/26';
+
+function parseDMY(s) { // "DD/MM/YY" → Date
+    const [d,m,y] = s.split('/');
+    return new Date(2000+parseInt(y), parseInt(m)-1, parseInt(d));
+}
+function fmtDateTH(s) { // "DD/MM/YY" → "8 มี.ค. 69"
+    const [d,m,y] = s.split('/');
+    return `${parseInt(d)} ${TH_MONTHS[parseInt(m)-1]} ${parseInt(y)+43}`; // พ.ศ.
+}
+function fmtDateShort(s) { // "DD/MM/YY" → "8 มี.ค."
+    const [d,m] = s.split('/');
+    return `${parseInt(d)} ${TH_MONTHS[parseInt(m)-1]}`;
+}
+function sortDates(dates) {
+    return [...dates].sort((a,b) => parseDMY(a) - parseDMY(b));
+}
+
+// Parse order timeline — supports cross-day
+// od: "DD/MM/YY HH:MM"  cd: "HH:MM"  rd: "HH:MM" or "DD/MM/YY HH:MM"
+function parseTL(lab) {
+    const odParts = (lab.od||'').split(' ');
+    const odDate  = odParts[0] || '';
+    const odTime  = odParts[1] || '';
+
+    const cdTime  = lab.cd || '';
+
+    const rdRaw   = lab.rd || '';
+    const rdParts = rdRaw.split(' ');
+    let rdDate='', rdTime='';
+    if (rdParts.length >= 2) { rdDate=rdParts[0]; rdTime=rdParts[1]; }
+    else { rdDate=odDate; rdTime=rdParts[0]||''; }
+
+    const crossDay = rdDate && rdDate !== odDate;
+    return { odDate, odTime, cdTime, rdDate, rdTime, crossDay };
+}
+
+// ── Date context badge ──
+// Returns { label, bg, color, icon } describing how long ago the order was
+function dateContext(ddmmyy) {
+    if (!ddmmyy) return null;
+    const orderDate   = parseDMY(ddmmyy);
+    const todayDate   = parseDMY(TODAY_DATE);
+    const diffMs      = todayDate - orderDate;
+    const diffDays    = Math.round(diffMs / 86400000);
+
+    if (diffDays === 0) return { label:'วันนี้',        bg:'#dbeafe', color:'#1d4ed8', icon:'fa-circle-dot' };
+    if (diffDays === 1) return { label:'เมื่อวาน',      bg:'#e0f2fe', color:'#0369a1', icon:'fa-clock-rotate-left' };
+    if (diffDays <= 6)  return { label:`${diffDays} วันที่แล้ว`,  bg:'#f1f5f9', color:'#475569', icon:'fa-clock-rotate-left' };
+    if (diffDays <= 13) return { label:`${Math.floor(diffDays/7)} สัปดาห์ที่แล้ว`, bg:'#fef3c7', color:'#92400e', icon:'fa-calendar-week' };
+    if (diffDays <= 30) return { label:`${Math.floor(diffDays/7)} สัปดาห์ที่แล้ว`, bg:'#fef9c3', color:'#713f12', icon:'fa-calendar-week' };
+    if (diffDays <= 60) return { label:`${Math.floor(diffDays/30)} เดือนที่แล้ว`,  bg:'#fce7f3', color:'#9d174d', icon:'fa-calendar-days' };
+    return { label:`${Math.floor(diffDays/30)} เดือนที่แล้ว`, bg:'#f5f3ff', color:'#5b21b6', icon:'fa-calendar-days' };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DATA  — visits: [{date:'DD/MM/YY', val:number|string|null}]
+//          od:"DD/MM/YY HH:MM"  cd:"HH:MM"  rd:"HH:MM" or "DD/MM/YY HH:MM"
+// ═══════════════════════════════════════════════════════════
+const allLabs = [
+  // ── Hematology ─────────────────────────────────────────
+  { id:'CBC', group:'Hematology', name:'Complete Blood Count (CBC)',
+    doctor:'นพ.ชัยมงคล', today:true, isAbnormal:true, reported:true,
+    od:'08/03/26 09:00', cd:'09:15', rd:'10:30',
+    data:[
+      { item:'Hemoglobin', unit:'g/dL',
+        visits:[{date:'08/03/25',val:14.8},{date:'11/09/25',val:14.5},{date:'08/12/25',val:14.2},{date:'06/02/26',val:13.8},{date:'22/02/26',val:13.5},{date:'08/03/26',val:12.1}],
+        ref:'13.0 - 17.0', alert:'abnormal', patientNote:'ความเข้มข้นเลือดต่ำกว่าปกติเล็กน้อย' },
+      { item:'WBC Count', unit:'10³/µL',
+        visits:[{date:'08/03/25',val:7.8},{date:'11/09/25',val:8.2},{date:'08/12/25',val:8.5},{date:'06/02/26',val:8.8},{date:'22/02/26',val:9.2},{date:'08/03/26',val:18.5}],
+        ref:'4.0 - 10.0', alert:'critical', patientNote:'เม็ดเลือดขาวสูงผิดปกติมาก อาจมีการติดเชื้อ' },
+      { item:'Platelet', unit:'10³/µL',
+        visits:[{date:'08/03/25',val:245},{date:'11/09/25',val:238},{date:'08/12/25',val:225},{date:'06/02/26',val:210},{date:'22/02/26',val:198},{date:'08/03/26',val:188}],
+        ref:'150 - 400', alert:'', patientNote:'เกล็ดเลือดปกติ' },
+      { item:'Hematocrit', unit:'%',
+        visits:[{date:'08/03/25',val:44.5},{date:'11/09/25',val:43.8},{date:'08/12/25',val:43.0},{date:'06/02/26',val:41.5},{date:'22/02/26',val:40.8},{date:'08/03/26',val:37.2}],
+        ref:'39.0 - 50.0', alert:'abnormal', patientNote:'ฮีมาโตคริตต่ำกว่าเกณฑ์' },
+      { item:'MCV', unit:'fL',
+        visits:[{date:'08/03/25',val:88},{date:'11/09/25',val:86},{date:'08/12/25',val:85},{date:'06/02/26',val:82},{date:'22/02/26',val:80},{date:'08/03/26',val:76}],
+        ref:'80 - 100', alert:'abnormal', patientNote:'ขนาดเม็ดเลือดแดงเล็กลงต่อเนื่อง' },
+    ]
+  },
+
+  // ── Lipid ───────────────────────────────────────────────
+  { id:'LIPID', group:'BloodChem', name:'Lipid Profile (Full Set)',
+    doctor:'นพ.ชัยมงคล', today:true, isAbnormal:true, reported:true,
+    od:'08/03/26 09:05', cd:'09:20', rd:'11:15',
+    data:[
+      { item:'Total Cholesterol', unit:'mg/dL',
+        visits:[{date:'11/09/25',val:195},{date:'08/12/25',val:200},{date:'22/02/26',val:210},{date:'08/03/26',val:240}],
+        ref:'< 200', alert:'abnormal', patientNote:'คอเลสเตอรอลรวมสูง ควรลดอาหารมัน' },
+      { item:'LDL Cholesterol', unit:'mg/dL',
+        visits:[{date:'11/09/25',val:148},{date:'08/12/25',val:152},{date:'22/02/26',val:160},{date:'08/03/26',val:192}],
+        ref:'< 130', alert:'critical', patientNote:'ไขมันไม่ดีสูงมาก เสี่ยงโรคหัวใจ' },
+      { item:'HDL Cholesterol', unit:'mg/dL',
+        visits:[{date:'11/09/25',val:47},{date:'08/12/25',val:46},{date:'22/02/26',val:42},{date:'08/03/26',val:35}],
+        ref:'> 40', alert:'abnormal', patientNote:'ไขมันดีต่ำ ออกกำลังกายช่วยได้' },
+      { item:'Triglycerides', unit:'mg/dL',
+        visits:[{date:'11/09/25',val:168},{date:'08/12/25',val:172},{date:'22/02/26',val:188},{date:'08/03/26',val:215}],
+        ref:'< 150', alert:'abnormal', patientNote:'ไตรกลีเซอไรด์สูง ควรลดน้ำตาลและแป้ง' },
+    ]
+  },
+
+  // ── Liver ───────────────────────────────────────────────
+  { id:'LIVER', group:'BloodChem', name:'Liver Panel (ALT/AST/ALP/Bili)',
+    doctor:'พญ.นลินี', today:true, isAbnormal:true, reported:true,
+    od:'08/03/26 09:10', cd:'09:25', rd:'12:00',
+    data:[
+      { item:'ALT (SGPT)', unit:'U/L',
+        visits:[{date:'08/12/25',val:35},{date:'22/02/26',val:42},{date:'08/03/26',val:85}],
+        ref:'0 - 41', alert:'abnormal', patientNote:'ค่าตับสูง อาจมีการอักเสบ' },
+      { item:'AST (SGOT)', unit:'U/L',
+        visits:[{date:'08/12/25',val:31},{date:'22/02/26',val:35},{date:'08/03/26',val:62}],
+        ref:'0 - 40', alert:'abnormal', patientNote:'ค่าตับสูงขึ้นพร้อม ALT' },
+      { item:'ALP', unit:'U/L',
+        visits:[{date:'08/12/25',val:88},{date:'22/02/26',val:95},{date:'08/03/26',val:118}],
+        ref:'40 - 130', alert:'', patientNote:'ค่า ALP อยู่ในเกณฑ์ปกติ' },
+      { item:'Total Bilirubin', unit:'mg/dL',
+        visits:[{date:'08/12/25',val:0.9},{date:'22/02/26',val:1.0},{date:'08/03/26',val:1.3}],
+        ref:'0.2 - 1.2', alert:'abnormal', patientNote:'บิลิรูบินสูงเล็กน้อย' },
+    ]
+  },
+
+  // ── Kidney ──────────────────────────────────────────────
+  { id:'KIDNEY', group:'BloodChem', name:'Kidney Function (Cr/BUN/eGFR)',
+    doctor:'พญ.นลินี', today:true, isAbnormal:false, reported:true,
+    od:'08/03/26 09:12', cd:'09:30', rd:'11:00',
+    data:[
+      { item:'Creatinine', unit:'mg/dL',
+        visits:[{date:'08/03/25',val:0.95},{date:'08/12/25',val:1.00},{date:'06/02/26',val:1.08},{date:'22/02/26',val:1.10},{date:'08/03/26',val:1.05}],
+        ref:'0.7 - 1.2', alert:'', patientNote:'ไตทำงานปกติดี' },
+      { item:'BUN', unit:'mg/dL',
+        visits:[{date:'08/03/25',val:14},{date:'08/12/25',val:15},{date:'06/02/26',val:16},{date:'22/02/26',val:17},{date:'08/03/26',val:18}],
+        ref:'7 - 20', alert:'', patientNote:'BUN ปกติ' },
+      { item:'eGFR', unit:'mL/min/1.73m²',
+        visits:[{date:'08/03/25',val:82},{date:'08/12/25',val:80},{date:'06/02/26',val:77},{date:'22/02/26',val:76},{date:'08/03/26',val:78}],
+        ref:'> 60', alert:'', patientNote:'อัตราการกรองของไตอยู่ในเกณฑ์ดี' },
+    ]
+  },
+
+  // ── Glucose ─────────────────────────────────────────────
+  { id:'GLUCOSE', group:'BloodChem', name:'Glucose / FBS',
+    doctor:'นพ.ชัยมงคล', today:true, isAbnormal:true, reported:true,
+    od:'08/03/26 07:30', cd:'07:45', rd:'08:30',
+    data:[
+      { item:'FBS', unit:'mg/dL',
+        visits:[{date:'08/03/25',val:118},{date:'11/09/25',val:125},{date:'06/02/26',val:138},{date:'22/02/26',val:142},{date:'08/03/26',val:156}],
+        ref:'70 - 100', alert:'critical', patientNote:'น้ำตาลอดอาหารสูงมาก ต้องควบคุมอย่างเข้มงวด' },
+      { item:'2hr Post-OGTT', unit:'mg/dL',
+        visits:[{date:'08/03/25',val:185},{date:'11/09/25',val:198},{date:'06/02/26',val:null}],
+        ref:'< 140', alert:'abnormal', patientNote:'น้ำตาลหลังอาหารสูง' },
+    ]
+  },
+
+  // ── Electrolytes (pending) ─────────────────────────────
+  { id:'ELECTRO', group:'BloodChem', name:'Electrolytes (Na/K/Cl/CO₂)',
+    doctor:'นพ.สมเกียรติ', today:true, isAbnormal:false, reported:false,
+    od:'08/03/26 09:15', cd:'09:40', rd:'', data:[] },
+
+  // ── Endocrine ────────────────────────────────────────────
+  { id:'HBA1C', group:'Endocrine', name:'HbA1C (Glycated Hemoglobin)',
+    doctor:'นพ.ชัยมงคล', today:false, isAbnormal:true, reported:true,
+    od:'22/02/26 10:00', cd:'10:15', rd:'14:20',
+    data:[
+      { item:'HbA1C', unit:'%',
+        visits:[{date:'08/03/25',val:9.1},{date:'11/09/25',val:8.8},{date:'08/12/25',val:8.5},{date:'22/02/26',val:7.8}],
+        ref:'< 6.5', alert:'abnormal', patientNote:'น้ำตาลเฉลี่ย 3 เดือนยังสูง แต่แนวโน้มดีขึ้น' },
+    ]
+  },
+  { id:'THYROID', group:'Endocrine', name:'Thyroid Function (TSH/FT4)',
+    doctor:'พญ.นลินี', today:true, isAbnormal:false, reported:true,
+    od:'08/03/26 09:08', cd:'09:25', rd:'09/03/26 08:00', // ← ผลข้ามวัน
+    data:[
+      { item:'TSH', unit:'µIU/mL',
+        visits:[{date:'08/03/25',val:2.8},{date:'08/12/25',val:3.1},{date:'08/03/26',val:2.9}],
+        ref:'0.4 - 4.0', alert:'', patientNote:'ไทรอยด์ทำงานปกติ' },
+      { item:'Free T4', unit:'ng/dL',
+        visits:[{date:'08/03/25',val:1.2},{date:'08/12/25',val:1.1},{date:'08/03/26',val:1.15}],
+        ref:'0.8 - 1.8', alert:'', patientNote:'ฮอร์โมนไทรอยด์อยู่ในเกณฑ์ปกติ' },
+    ]
+  },
+
+  // ── Immunology ────────────────────────────────────────────
+  { id:'HIV', group:'Immunology', name:'Anti-HIV (Screening)',
+    doctor:'พญ.มานิตา', today:false, isAbnormal:false, reported:true,
+    od:'11/09/25 08:30', cd:'08:45', rd:'14:00',
+    data:[
+      { item:'HIV Ag/Ab', unit:'',
+        visits:[{date:'11/09/25',val:'Non-Reactive'}],
+        ref:'Non-Reactive', alert:'', patientNote:'ไม่พบการติดเชื้อ HIV' },
+    ]
+  },
+];
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let pinnedIds = [], previewId = null, currentView = 'table';
+let activeCharts = [], isPatientMode = false;
+let openedIds = new Set();
+
+function getDisplayIds() {
+    const ids = [...pinnedIds];
+    if (previewId && !pinnedIds.includes(previewId)) ids.push(previewId);
+    return ids;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MATRIX DATE LOGIC  — union of all test dates
+// ═══════════════════════════════════════════════════════════
+function getMatrixDates(labIds) {
+    const set = new Set();
+    labIds.forEach(id => {
+        const lab = allLabs.find(l => l.id === id);
+        if (!lab || !lab.reported) return;
+        lab.data.forEach(d => d.visits.forEach(v => set.add(v.date)));
+    });
+    return sortDates([...set]);
+}
+
+function getVal(item, date) {
+    const v = item.visits.find(x => x.date === date);
+    return v ? v.val : null;
+}
+
+// Get the two most recent values for trend
+function getLastTwo(item) {
+    const sorted = sortDates(item.visits.map(v => v.date));
+    const last  = sorted[sorted.length - 1];
+    const prev  = sorted[sorted.length - 2];
+    return {
+        v1: last  ? getVal(item, last)  : null,
+        v2: prev  ? getVal(item, prev)  : null,
+    };
+}
+
+function calcTrend(v1, v2) {
+    if (v1 === null || v2 === null || typeof v1 !== 'number' || typeof v2 !== 'number') return null;
+    const d = v1 - v2, pct = ((d / Math.abs(v2)) * 100).toFixed(1);
+    if (Math.abs(d) < 0.001) return { arrow:'→', pct:'0.0', cls:'eq' };
+    return d > 0 ? { arrow:'↑', pct:`+${pct}%`, cls:'up' } : { arrow:'↓', pct:`${pct}%`, cls:'dn' };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SUMMARY STRIP
+// ═══════════════════════════════════════════════════════════
+function updateSummary() {
+    let crit=0, abn=0, norm=0; const critItems=[];
+    getDisplayIds().forEach(id => {
+        const lab = allLabs.find(l => l.id === id);
+        if (!lab || !lab.reported) return;
+        lab.data.forEach(d => {
+            if      (d.alert==='critical') { crit++; critItems.push(d.item); }
+            else if (d.alert==='abnormal')   abn++;
+            else                             norm++;
+        });
+    });
+    document.getElementById('sCrit').textContent  = `${crit} Critical`;
+    document.getElementById('sAbn').textContent   = `${abn} Abnormal`;
+    document.getElementById('sNorm').textContent  = `${norm} Normal`;
+    document.getElementById('critTags').innerHTML = critItems.map(n=>
+        `<span class="crit-badge"><i class="fa-solid fa-triangle-exclamation" style="font-size:7px"></i>${n}</span>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SIDEBAR
+// ═══════════════════════════════════════════════════════════
+function renderList() {
+    const showAll = document.getElementById('chkHistory').checked;
+    const flt     = document.getElementById('selGroup').value;
+    const con     = document.getElementById('orderList');
+    con.innerHTML = '';
+
+    const groups = [...new Set(allLabs.map(l => l.group))];
+    groups.forEach(grp => {
+        if (flt !== 'ALL' && flt !== grp) return;
+        const labs = allLabs.filter(l => l.group === grp && (showAll || l.today));
+        if (!labs.length) return;
+
+        const hdr = document.createElement('div');
+        hdr.className = 'grp-hdr';
+        hdr.innerHTML = `<i class="fa-solid fa-layer-group mr-2 opacity-50"></i>${grp}`;
+        con.appendChild(hdr);
+
+        labs.forEach(lab => {
+            const isPinned  = pinnedIds.includes(lab.id);
+            const isPreview = previewId === lab.id;
+            const isHistory = !lab.today;
+            const isOpened  = openedIds.has(lab.id);
+            const tl        = parseTL(lab);
+
+            // ── Envelope (สีบอกสถานะ) ──
+            let env = '';
+            if (!lab.reported) {
+                env = `<i class="fa-solid fa-spinner fa-spin" style="color:#93c5fd;font-size:13px" title="รอผล"></i>`;
+            } else {
+                const col = lab.isAbnormal
+                    ? (isOpened ? '#ea580c' : '#fdba74')
+                    : (isOpened ? '#16a34a' : '#86efac');
+                const icon = isOpened ? 'fa-envelope-open' : 'fa-envelope';
+                env = `<i class="fa-solid ${icon} env-btn" style="color:${col};font-size:15px" onclick="openEnvelope(event,'${lab.id}')" title="${isOpened?'ดูแล้ว':'คลิกดูผล'}"></i>`;
+            }
+
+            // ── Date badge(s) — Order date + Result date if cross-day ──
+            const fmtBadgeDate = (ddmmyy) => {
+                if (!ddmmyy) return '—';
+                const [d,m,y] = ddmmyy.split('/');
+                const mNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+                return `${d.padStart(2,'0')}-${mNames[parseInt(m)-1]}-${2000+parseInt(y)}`;
+            };
+            const badgeStyle = 'background:#1e293b;color:#f1f5f9;font-size:8px;font-weight:700;padding:1px 6px;border-radius:4px;font-family:"JetBrains Mono",monospace;white-space:nowrap;letter-spacing:0.02em';
+            let dateBadge = `<span style="${badgeStyle}">${fmtBadgeDate(tl.odDate)}</span>`;
+            if (tl.crossDay && tl.rdDate) {
+                dateBadge += `<span style="${badgeStyle};margin-left:4px">${fmtBadgeDate(tl.rdDate)}</span>`;
+            }
+
+            // ── Minimal O·C·R timeline — font 7px, muted ──
+            const TS = (c) => `font-family:"JetBrains Mono",monospace;font-size:7px;color:${c};`;
+            const lbl = (l, t, lc, tc) => `<span style="${TS(tc)}"><span style="font-size:7px;font-weight:800;color:${lc}">${l}</span> ${t||'—'}</span>`;
+            const dot = `<span style="font-size:7px;color:#cbd5e1;margin:0 2px">·</span>`;
+
+            const nO = lbl('O', tl.odTime,  '#93c5fd', '#94a3b8');
+            const nC = lbl('C', tl.cdTime,  '#c4b5fd', '#94a3b8');
+            let nR;
+            if (!lab.reported) {
+                nR = `<span style="${TS('#64748b')}font-style:italic">R …</span>`;
+            } else if (tl.rdTime) {
+                nR = lbl('R', tl.rdTime, '#6ee7b7', '#94a3b8');
+            } else {
+                nR = `<span style="${TS('#94a3b8')}">R —</span>`;
+            }
+            const timeline = `<div style="display:flex;align-items:center;margin-top:2px">${nO}${dot}${nC}${dot}${nR}</div>`;
+
+            const item = document.createElement('div');
+            item.className = [
+                'lab-item cursor-pointer',
+                isHistory  ? 'hist-item'   : '',
+                isPinned   ? 'pinned-item' : '',
+                isPreview && !isPinned ? 'preview-item' : '',
+            ].filter(Boolean).join(' ');
+
+            // Layout ตรงตาม reference:
+            // แถว 1: [✓]  ชื่อ Lab                        [✉️]
+            // แถว 2:      [08-MAR-2026]      พญ.นลินี
+            // แถว 3:      ●09:10→●09:25→●12:00
+            item.innerHTML = `
+                <div style="display:flex;align-items:flex-start;gap:6px">
+                    <input type="checkbox" ${isPinned?'checked':''} onchange="togglePin(event,'${lab.id}')"
+                        class="rounded text-green-600 w-4 h-4 border-slate-300 flex-shrink-0 mt-0.5">
+                    <div style="flex:1;min-width:0" onclick="setPreview('${lab.id}')">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+                            <span style="font-size:11.5px;font-weight:700;color:#1e293b" class="truncate">${lab.name}${isHistory?' <span class="hist-badge">HIST</span>':''}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
+                            ${dateBadge}
+                            <span style="font-size:9px;font-weight:600;color:#64748b;white-space:nowrap">${lab.doctor}</span>
+                        </div>
+                        ${timeline}
+                    </div>
+                    <div style="flex-shrink:0;padding-top:2px">${env}</div>
+                </div>`;
+            con.appendChild(item);
+        });
+    });
+}
+
+function setPreview(id) { previewId = (previewId===id)?null:id; renderView(); renderList(); updateSummary(); }
+function togglePin(e,id) {
+    e.stopPropagation();
+    pinnedIds = pinnedIds.includes(id) ? pinnedIds.filter(i=>i!==id) : [...pinnedIds,id];
+    renderView(); renderList(); updateSummary();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TABLE HEAD  — dynamic date columns
+// ═══════════════════════════════════════════════════════════
+function renderTableHead(dates) {
+    const thead = document.getElementById('tblHead');
+    const isToday = d => d === TODAY_DATE;
+
+    const dateCols = dates.slice().reverse().map(d => {
+        const cls = isToday(d) ? 'col-today-hdr' : 'bg-slate-50 text-slate-500';
+        const border = isToday(d) ? 'border-l border-blue-200' : 'border-l';
+        return `<th class="text-center py-2 px-2 ${cls} ${border}" style="min-width:82px;white-space:nowrap">
+            <div style="font-size:9px;font-weight:800">${fmtDateShort(d)}</div>
+            ${isToday(d)?'<div style="font-size:8px;font-weight:500;color:#3b82f6">วันนี้ + trend</div>':''}
+        </th>`;
+    }).join('');
+
+    thead.innerHTML = `<tr class="bg-slate-50 text-[9px] uppercase font-black border-b tracking-wider">
+        <th class="sticky-left min-w-[180px] bg-slate-50 py-2 px-3 text-slate-500">Test / Unit</th>
+        ${dateCols}
+        <th class="text-center border-l py-2 px-2 bg-slate-50 text-slate-500" style="min-width:105px">Reference Range</th>
+    </tr>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER MAIN VIEW
+// ═══════════════════════════════════════════════════════════
+function renderView() {
+    const body  = document.getElementById('tblBody');
+    const empty = document.getElementById('emptyState');
+    const ids   = getDisplayIds();
+    body.innerHTML = '';
+
+    if (!ids.length) { empty.style.display='flex'; return; }
+    empty.style.display = 'none';
+
+    const dates = getMatrixDates(ids);  // sorted oldest→newest
+    renderTableHead(dates);
+
+    const selectedLabs = allLabs.filter(l=>ids.includes(l.id)).sort((a,b)=>a.group.localeCompare(b.group));
+    let curGrp = '';
+
+    selectedLabs.forEach(lab => {
+        if (lab.group !== curGrp) {
+            const gtr = document.createElement('tr');
+            gtr.innerHTML = `<td colspan="${dates.length+2}" class="p-2 px-4 bg-slate-50">
+                <i class="fa-solid fa-folder-open mr-2 opacity-40"></i>
+                <span class="text-[10px] font-black text-slate-600 uppercase tracking-widest">${lab.group}</span>
+            </td>`;
+            body.appendChild(gtr);
+            curGrp = lab.group;
+        }
+
+        if (lab.reported && lab.data.length) {
+            lab.data.forEach(row => {
+                const { v1, v2 } = getLastTwo(row);
+                const trend = calcTrend(v1, v2);
+                const trendHtml = trend
+                    ? `<span class="tbadge ${trend.cls} ml-1">${trend.arrow} ${trend.pct}</span>` : '';
+
+                let alertBadge = '';
+                if      (row.alert==='critical') alertBadge=`<span class="crit-badge ml-1"><i class="fa-solid fa-triangle-exclamation" style="font-size:7px"></i>CRIT</span>`;
+                else if (row.alert==='abnormal')  alertBadge=`<span class="abn-badge ml-1">ABNORM</span>`;
+
+                // Cells in reverse date order (newest first)
+                const cells = [...dates].reverse().map(date => {
+                    const val     = getVal(row, date);
+                    const isToday = date === TODAY_DATE;
+                    const hasVal  = val !== null;
+                    const fmtV    = hasVal ? val : '';
+                    const tdCls   = isToday ? `col-today ${row.alert}` : '';
+                    const txtCls  = hasVal ? 'val-cell' : 'col-empty';
+
+                    let cellContent;
+                    if (!hasVal) {
+                        cellContent = `<span style="color:#e2e8f0">—</span>`;
+                    } else if (isToday) {
+                        cellContent = `<span class="val-cell text-sm">${fmtV}</span>${trendHtml}${alertBadge}`;
+                    } else {
+                        cellContent = `<span class="${txtCls}" style="font-size:12px">${fmtV}</span>`;
+                    }
+                    return `<td class="text-center border-l py-2 px-2 ${tdCls}">${cellContent}</td>`;
+                }).join('');
+
+                const tr = document.createElement('tr');
+                tr.className = `hover:bg-slate-50 transition-colors ${row.alert==='critical'?'row-crit':''} ${row.alert==='abnormal'?'row-abn':''}`;
+                tr.innerHTML = `
+                    <td class="sticky-left py-2 px-3 bg-white">
+                        <div class="font-bold text-slate-700" style="font-size:12px">${row.item}</div>
+                        <div class="text-slate-400 font-mono" style="font-size:9px">${row.unit||'—'}</div>
+                    </td>
+                    ${cells}
+                    <td class="text-center border-l py-2 px-2 ref-cell">${row.ref}</td>`;
+                body.appendChild(tr);
+            });
+        } else if (!lab.reported) {
+            const cols = dates.length + 2;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="${cols}" class="py-5 text-center text-blue-400 bg-blue-50/20 font-bold uppercase tracking-widest" style="font-size:10px">
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i>${lab.name}: In Progress — รอผล
+            </td>`;
+            body.appendChild(tr);
+        }
+    });
+
+    if (currentView === 'graph') updateGraphs();
+    renderPtCards();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PATIENT MODE
+// ═══════════════════════════════════════════════════════════
+function renderPtCards() {
+    const con = document.getElementById('ptCards');
+    con.innerHTML = '';
+    getDisplayIds().forEach(id => {
+        const lab = allLabs.find(l=>l.id===id);
+        if (!lab||!lab.reported||!lab.data.length) return;
+        lab.data.forEach(row => {
+            const { v1, v2 } = getLastTwo(row);
+            const trend = calcTrend(v1, v2);
+            const icon = row.alert==='critical'?'🚨':row.alert==='abnormal'?'⚠️':'✅';
+            const col  = row.alert==='critical'?'#be123c':row.alert==='abnormal'?'#c2410c':'#166534';
+            const bg   = row.alert==='critical'?'#fff1f2':row.alert==='abnormal'?'#fff7ed':'#f0fdf4';
+            const lbl  = row.alert==='critical'?'ต้องดูแลด่วน':row.alert==='abnormal'?'ผิดปกติ':'ปกติ';
+            const trendTxt = trend ? (trend.cls==='up'?`สูงขึ้น ${trend.pct}`:trend.cls==='dn'?`ลดลง ${trend.pct}`:'คงที่') : '';
+            const dispV = v1!==null ? `${v1} ${row.unit}` : '—';
+
+            const card = document.createElement('div');
+            card.style.cssText=`background:${bg};border:2px solid ${col}30;border-radius:14px;padding:12px;margin-bottom:10px`;
+            card.innerHTML=`<div style="display:flex;align-items:flex-start;gap:10px">
+                <div style="font-size:22px;flex-shrink:0">${icon}</div>
+                <div style="flex:1">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                        <strong style="color:#1e293b;font-size:13px">${row.item}</strong>
+                        <span style="font-size:10px;font-weight:700;color:${col};background:${col}15;padding:1px 8px;border-radius:20px">${lbl}</span>
+                    </div>
+                    <div style="font-size:20px;font-weight:900;color:${col};margin-bottom:4px">
+                        ${dispV}
+                        ${trendTxt?`<span style="font-size:11px;font-weight:500;color:#64748b;margin-left:6px">${trendTxt}</span>`:''}
+                    </div>
+                    <p style="font-size:11px;color:#475569;line-height:1.5">${row.patientNote||''}</p>
+                    <div style="font-size:9px;color:#94a3b8;font-family:monospace;margin-top:4px">Ref: ${row.ref}</div>
+                </div>
+            </div>`;
+            con.appendChild(card);
+        });
+    });
+}
+
+function togglePtMode() {
+    isPatientMode = !isPatientMode;
+    const btn = document.getElementById('btnPt');
+    if (isPatientMode) {
+        btn.classList.add('active');
+        btn.innerHTML='<i class="fa-solid fa-user-doctor"></i><span>โหมดแพทย์</span>';
+        document.getElementById('tblView').classList.add('hidden');
+        document.getElementById('gphView').classList.add('hidden');
+        document.getElementById('ptView').classList.remove('hidden');
+        document.getElementById('aiPanel').classList.add('hidden');
+        renderPtCards(); runPtAI();
+    } else {
+        btn.classList.remove('active');
+        btn.innerHTML='<i class="fa-solid fa-user-doctor"></i><span>หันจออธิบายคนไข้</span>';
+        document.getElementById('ptView').classList.add('hidden');
+        if (currentView==='table') document.getElementById('tblView').classList.remove('hidden');
+        else                       document.getElementById('gphView').classList.remove('hidden');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GRAPH VIEW
+// ═══════════════════════════════════════════════════════════
+function switchView(mode) {
+    currentView = mode;
+    document.getElementById('btnTbl').className = mode==='table'
+        ? 'px-3 py-1 text-[10px] rounded-md bg-white shadow-sm font-bold text-blue-700'
+        : 'px-3 py-1 text-[10px] rounded-md font-bold text-slate-400';
+    document.getElementById('btnGph').className = mode==='graph'
+        ? 'px-3 py-1 text-[10px] rounded-md bg-white shadow-sm font-bold text-blue-700'
+        : 'px-3 py-1 text-[10px] rounded-md font-bold text-slate-400';
+    if (!isPatientMode) {
+        document.getElementById('tblView').classList.toggle('hidden', mode!=='table');
+        document.getElementById('gphView').classList.toggle('hidden', mode!=='graph');
+    }
+    if (mode==='graph') updateGraphs();
+}
+
+function updateGraphs() {
+    const con = document.getElementById('gphStack');
+    con.innerHTML='';
+    activeCharts.forEach(c=>c.destroy()); activeCharts=[];
+
+    const ids = getDisplayIds();
+    const allDates = getMatrixDates(ids);
+    const colors = ['#3b82f6','#dc2626','#16a34a','#d97706','#8b5cf6','#06b6d4'];
+
+    const unitGroups = {};
+    ids.forEach(id => {
+        const lab = allLabs.find(l=>l.id===id);
+        if (!lab||!lab.reported) return;
+        lab.data.forEach(d => {
+            if (!unitGroups[d.unit]) unitGroups[d.unit]=[];
+            unitGroups[d.unit].push(d);
+        });
+    });
+
+    Object.entries(unitGroups).forEach(([unit, items]) => {
+        const wrap   = document.createElement('div');
+        wrap.className = 'g-card shadow-sm';
+        const canvas = document.createElement('canvas');
+        wrap.appendChild(canvas);
+        con.appendChild(wrap);
+
+        const labels   = allDates.map(d => fmtDateShort(d));
+        const datasets = items.map((item,idx) => ({
+            label: item.item,
+            data:  allDates.map(d => { const v=getVal(item,d); return typeof v==='number'?v:null; }),
+            borderColor: colors[idx%colors.length],
+            backgroundColor: colors[idx%colors.length]+'18',
+            tension:0.4, borderWidth:2.5,
+            pointRadius:4, pointBackgroundColor:colors[idx%colors.length],
+            fill:true, spanGaps:true
+        }));
+
+        activeCharts.push(new Chart(canvas, {
+            type:'line', data:{ labels, datasets },
+            options:{
+                maintainAspectRatio:false,
+                plugins:{
+                    legend:{ position:'right', labels:{ font:{size:9}, boxWidth:12 } },
+                    title:{ display:true, text:`Unit: ${unit||'—'}`, font:{size:9,weight:'bold'}, color:'#64748b' }
+                },
+                scales:{
+                    x:{ ticks:{ font:{size:8}, maxRotation:30 } },
+                    y:{ ticks:{ font:{size:8} } }
+                }
+            }
+        }));
+    });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AI
+// ═══════════════════════════════════════════════════════════
+function buildLabText() {
+    let ids = getDisplayIds();
+    if (!ids.length) ids = allLabs.filter(l=>l.today&&l.reported).map(l=>l.id);
+    let lines = [`ผู้ป่วย: คุณสมชาย ใจดี ชาย 54 ปี วันที่: 8 มีนาคม 2569\n`];
+    ids.forEach(id => {
+        const lab = allLabs.find(l=>l.id===id);
+        if (!lab||!lab.reported||!lab.data.length) return;
+        lines.push(`[${lab.name}]`);
+        lab.data.forEach(d => {
+            const {v1,v2} = getLastTwo(d);
+            const t = calcTrend(v1,v2);
+            const ts = t ? ` (${t.cls==='up'?'↑':t.cls==='dn'?'↓':'→'} ${t.pct})` : '';
+            lines.push(`  ${d.item}: ${v1??'—'} ${d.unit} [Ref:${d.ref}]${ts} → ${d.alert||'normal'}`);
+        });
+        lines.push('');
+    });
+    return lines.join('\n');
+}
+
+async function runAI() {
+    const panel=document.getElementById('aiPanel'), res=document.getElementById('aiResult'), btn=document.getElementById('btnAI');
+    panel.classList.remove('hidden'); res.textContent=''; res.classList.add('ai-typing'); btn.disabled=true;
+    try {
+        const r = await fetch("https://api.anthropic.com/v1/messages",{
+            method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000,
+                messages:[{role:"user",content:
+                    `วิเคราะห์ผล Lab ต่อไปนี้สำหรับแพทย์ผู้รักษา:\n\n${buildLabText()}\n\n1.ผลที่ต้องดูแลด่วน (Critical)\n2.ผลผิดปกติอื่นๆ และแนวทาง\n3.แนวโน้มจาก Trend\n4.ข้อเสนะแนะทางคลินิก\n\nตอบภาษาไทย กระชับ ใช้ bullet`}]
+            })
+        });
+        const data = await r.json();
+        res.classList.remove('ai-typing');
+        res.textContent = data.content?.map(c=>c.text||'').join('') || 'ไม่สามารถวิเคราะห์ได้';
+    } catch { res.classList.remove('ai-typing'); res.textContent='⚠️ เชื่อมต่อ AI ไม่ได้'; }
+    btn.disabled=false;
+}
+
+async function runPtAI() {
+    const box=document.getElementById('ptAIBox'), txt=document.getElementById('ptAIText');
+    box.classList.remove('hidden'); txt.textContent=''; txt.classList.add('ai-typing');
+    try {
+        const r = await fetch("https://api.anthropic.com/v1/messages",{
+            method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:500,
+                messages:[{role:"user",content:
+                    `อธิบายผลตรวจให้ผู้ป่วยฟัง ภาษาไทยเข้าใจง่าย อบอุ่น:\n\n${buildLabText()}\n\nสรุปภาพรวม + คำแนะนำดูแลตัวเอง (4-5 ประโยค ให้กำลังใจ)`}]
+            })
+        });
+        const data = await r.json();
+        txt.classList.remove('ai-typing');
+        txt.textContent = data.content?.map(c=>c.text||'').join('') || '';
+    } catch { txt.classList.remove('ai-typing'); txt.textContent='⚠️ ไม่สามารถโหลดได้'; }
+}
+
+function closeAI() { document.getElementById('aiPanel').classList.add('hidden'); }
+
+// ═══════════════════════════════════════════════════════════
+//  DETAIL DIALOG
+// ═══════════════════════════════════════════════════════════
+function openEnvelope(e, id) {
+    e.stopPropagation();
+    openedIds.add(id); renderList();
+
+    const lab   = allLabs.find(l=>l.id===id);
+    const dates = sortDates([...new Set(lab.data.flatMap(d => d.visits.map(v=>v.date)))]).reverse(); // newest first
+
+    const dateHdrs = dates.map(d =>
+        `<td style="padding:5px 8px;text-align:center;font-size:8px;font-weight:800;white-space:nowrap;
+            color:${d===TODAY_DATE?'#1d4ed8':'#94a3b8'};background:${d===TODAY_DATE?'#dbeafe':'#0f172a'}">${fmtDateShort(d)}</td>`
+    ).join('');
+
+    const rows = lab.data.map(d => {
+        const { v1, v2 } = getLastTwo(d);
+        const trend      = calcTrend(v1, v2);
+        const trendHtml  = trend ? `<span style="margin-left:4px;font-size:8.5px;padding:1px 4px;border-radius:3px;
+            background:${trend.cls==='up'?'#fee2e2':trend.cls==='dn'?'#dcfce7':'#f1f5f9'};
+            color:${trend.cls==='up'?'#dc2626':trend.cls==='dn'?'#16a34a':'#64748b'};font-family:monospace">
+            ${trend.arrow} ${trend.pct}</span>` : '';
+        let badge='';
+        if (d.alert==='critical') badge=`<span style="background:#be123c;color:#fff;font-size:7px;padding:1px 4px;border-radius:3px;font-weight:800;margin-left:3px">🚨CRIT</span>`;
+        else if (d.alert==='abnormal') badge=`<span style="background:#f97316;color:#fff;font-size:7px;padding:1px 4px;border-radius:3px;font-weight:700;margin-left:3px">ABNORM</span>`;
+
+        const cells = dates.map(date => {
+            const val = getVal(d, date);
+            const isT = date === TODAY_DATE;
+            const bg  = isT ? '#eff6ff' : 'transparent';
+            const fw  = isT ? '800' : '600';
+            const fmtV = val===null ? `<span style="color:#e2e8f0">—</span>` : val;
+            return `<td style="padding:6px 8px;text-align:center;font-family:monospace;font-size:11px;font-weight:${fw};background:${bg};border-bottom:1px solid #f1f5f9">${fmtV}</td>`;
+        }).join('');
+
+        return `<tr>
+            <td style="padding:7px 10px;font-weight:600;color:#334155;font-size:11px;border-bottom:1px solid #f1f5f9">
+                ${d.item} <span style="color:#94a3b8;font-size:9px">(${d.unit})</span>${badge}${trendHtml}
+            </td>
+            ${cells}
+            <td style="padding:7px 10px;text-align:center;color:#64748b;font-family:monospace;font-size:10px;border-bottom:1px solid #f1f5f9">${d.ref}</td>
+        </tr>`;
+    }).join('');
+
+    // Build visual O→C→R timeline for dialog
+    const tl  = parseTL(lab);
+    const ctx = dateContext(tl.odDate);
+
+    // Each node: date (if cross-day or different from order date) + time + label
+    const mkNode = (label, dotColor, dateStr, timeStr, isBase) => {
+        const showDate = dateStr && (!isBase || tl.crossDay);
+        return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:70px">
+            <div style="width:28px;height:28px;border-radius:50%;background:${dotColor}20;border:2px solid ${dotColor};
+                display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:${dotColor}">${label}</div>
+            ${showDate ? `<div style="font-size:9px;font-weight:700;color:#334155;font-family:'JetBrains Mono',monospace">${fmtDateShort(dateStr)}</div>` : ''}
+            <div style="font-size:10px;font-weight:700;color:#1e293b;font-family:'JetBrains Mono',monospace">${timeStr||'—'}</div>
+        </div>`;
+    };
+    const mkArrow = (label) =>
+        `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 4px;padding-bottom:14px">
+            <div style="height:2px;width:28px;background:#e2e8f0"></div>
+        </div>`;
+
+    const tlVisual = `
+        <div style="display:flex;align-items:flex-end;gap:0;background:#f8fafc;border-radius:10px;padding:10px 14px;border:1px solid #e2e8f0;margin-top:6px">
+            ${mkNode('O','#3b82f6', tl.odDate, tl.odTime, true)}
+            ${mkArrow()}
+            ${tl.cdTime
+                ? mkNode('C','#8b5cf6', tl.odDate, tl.cdTime, false) + mkArrow()
+                : `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:70px;opacity:0.3">
+                    <div style="width:28px;height:28px;border-radius:50%;border:2px dashed #94a3b8;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#94a3b8">C</div>
+                    <div style="font-size:10px;color:#94a3b8">—</div>
+                  </div>` + mkArrow()
+            }
+            ${tl.rdTime
+                ? mkNode('R','#16a34a', tl.rdDate, tl.rdTime, false) +
+                  (tl.crossDay ? `<span style="margin-left:6px;align-self:center;background:#fef3c7;color:#92400e;font-size:8px;padding:2px 6px;border-radius:4px;font-weight:700;white-space:nowrap">ข้ามวัน</span>` : '')
+                : `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:70px">
+                    <div style="width:28px;height:28px;border-radius:50%;border:2px dashed #3b82f6;background:#eff6ff;display:flex;align-items:center;justify-content:center;animation:critPulse 1.5s infinite">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size:10px;color:#3b82f6"></i>
+                    </div>
+                    <div style="font-size:9px;color:#3b82f6;font-weight:700">รอผล</div>
+                  </div>`
+            }
+            <div style="margin-left:auto;display:flex;align-items:center">
+                ${ctx ? `<span style="background:${ctx.bg};color:${ctx.color};font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px">${ctx.label}</span>` : ''}
+            </div>
+        </div>`;
+
+    document.getElementById('dlgContent').innerHTML = `
+        <div style="border-bottom:1px solid #f1f5f9;padding-bottom:12px;margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <i class="fa-solid fa-envelope-open" style="color:${lab.isAbnormal?'#ea580c':'#16a34a'};font-size:18px"></i>
+                <h4 style="font-size:15px;font-weight:900;color:#0f172a">${lab.name}</h4>
+            </div>
+            <div style="font-size:10px;color:#64748b;margin-bottom:2px">🩺 <b>${lab.doctor}</b></div>
+            ${tlVisual}
+        </div>
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead><tr style="background:#0f172a">
+                <td style="padding:5px 10px;font-size:8px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em">รายการตรวจ</td>
+                ${dateHdrs}
+                <td style="padding:5px 10px;text-align:center;font-size:8px;font-weight:800;color:#94a3b8;background:#0f172a;text-transform:uppercase">Ref</td>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+        </div>`;
+    document.getElementById('dlg').classList.remove('hidden');
+}
+
+function closeDlg() { document.getElementById('dlg').classList.add('hidden'); }
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+window.onload = () => {
+    pinnedIds = ['LIPID','LIVER'];
+    renderList();
+    setPreview('CBC');
+    updateSummary();
+};
+</script>
+</body>
+</html>
