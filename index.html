@@ -13,17 +13,29 @@
         .abnormal { color: #9a3412; font-weight: bold; background-color: #fff7ed; }
         .sticky-left { position: sticky; left: 0; background: white; z-index: 10; border-right: 1px solid #e2e8f0; }
         .dialog-overlay { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
-        .lab-item-compact { padding: 4px 12px; border-bottom: 1px solid #f1f5f9; min-height: 42px; }
-        .history-item { background-color: #f1f5f9 !important; border-left: 4px solid #94a3b8; } 
-        .timeline-mini { display: flex; gap: 8px; font-family: monospace; font-size: 8px; color: #64748b; margin-top: 1px; }
-        .time-node { background: #f8fafc; padding: 1px 4px; border-radius: 4px; border: 1px solid #e2e8f0; }
+        .lab-item-compact { padding: 4px 12px; border-bottom: 1px solid #f1f5f9; min-height: 52px; }
+        .history-item { background-color: #f8fafc !important; border-left: 4px solid #94a3b8; } 
+        .timeline-mini { display: flex; gap: 6px; font-family: monospace; font-size: 8px; color: #64748b; margin-top: 2px; }
+        .time-node { background: #f8fafc; padding: 1px 4px; border-radius: 3px; border: 1px solid #e2e8f0; }
         .cd-focus { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; font-weight: bold; }
         .group-header { background-color: #475569; padding: 4px 12px; font-size: 10px; font-weight: 700; color: white; letter-spacing: 0.1em; }
         .sub-group-marker { background-color: #f1f5f9; color: #475569; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; border-y: 1px solid #e2e8f0; }
-        .badge-history { font-size: 8px; background: #64748b; color: white; padding: 1px 4px; border-radius: 4px; font-weight: bold; margin-left: 5px; }
+        .badge-status { font-size: 8px; padding: 1px 4px; border-radius: 4px; font-weight: bold; margin-left: 5px; }
+        .badge-today { background: #2563eb; color: white; }
+        .badge-history { background: #64748b; color: white; }
         .active-preview { background-color: #e0f2fe !important; border-right: 5px solid #0284c7; }
-        .matrix-table th, .matrix-table td { padding: 4px 10px !important; font-size: 11px; }
-        .graph-stack-item { background: white; padding: 12px; border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 12px; height: 230px; }
+        .matrix-table th, .matrix-table td { padding: 6px 12px !important; font-size: 11px; }
+        .graph-stack-item { background: white; padding: 12px; border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 12px; height: 240px; }
+
+        /* Patient Dashboard Specific Styles */
+        .dashboard-modal { display: none; position: fixed; inset: 0; background: #f8fafc; z-index: 100; overflow-y: auto; padding: 20px; }
+        .status-tab { padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: bold; cursor: pointer; border: 1px solid #e2e8f0; background: white; }
+        .status-tab.active { background: #1e293b; color: white; border-color: #1e293b; }
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 20px; }
+        .lab-card { background: white; border-radius: 20px; padding: 20px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; justify-content: space-between; min-height: 280px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .gauge-container { position: relative; height: 100px; margin: 15px 0; }
+        .gauge-bg { stroke: #f1f5f9; stroke-width: 8; fill: none; stroke-linecap: round; }
+        .gauge-needle { stroke-width: 3; fill: none; stroke-linecap: round; transition: all 0.5s ease-in-out; }
     </style>
 </head>
 <body class="flex flex-col text-sm">
@@ -34,7 +46,7 @@
             <div class="h-6 w-px bg-slate-200"></div>
             <div class="text-sm font-bold text-slate-700">HN: 001-25-000456 | คุณสมชาย ใจดี (54Y / M)</div>
         </div>
-        <button class="bg-blue-600 text-white px-5 py-1.5 rounded-xl text-[10px] font-bold hover:bg-blue-700 transition shadow-lg">
+        <button onclick="openDashboard()" class="bg-blue-600 text-white px-5 py-1.5 rounded-xl text-[10px] font-bold shadow-lg hover:bg-blue-700 transition">
             หันจออธิบายคนไข้
         </button>
     </div>
@@ -43,7 +55,7 @@
         <div class="w-1/3 bg-white border-r flex flex-col shadow-inner">
             <div class="p-3 bg-slate-50 border-b flex flex-col gap-2">
                 <div class="flex justify-between items-center">
-                    <span class="text-[11px] font-black text-blue-800 uppercase tracking-widest">Laboratory Groups</span>
+                    <span class="text-[11px] font-black text-blue-800 uppercase tracking-widest">Lab Groups Navigation</span>
                     <label class="flex items-center gap-2 cursor-pointer bg-white px-2 py-0.5 rounded-full border shadow-sm">
                         <span class="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">Show History</span>
                         <input type="checkbox" id="toggleShowAll" onchange="renderList()" class="form-checkbox h-3 w-3 text-blue-600 rounded">
@@ -63,10 +75,10 @@
             <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col h-full">
                 <div class="p-4 border-b bg-white flex justify-between items-center">
                     <div class="flex gap-4 items-center">
-                        <span class="font-black text-slate-800 text-sm">CLINICAL DATA MATRIX</span>
+                        <span class="font-black text-slate-800 text-sm tracking-tight">CLINICAL MATRIX ANALYTICS</span>
                         <div class="flex bg-slate-100 p-1 rounded-xl border">
-                            <button onclick="switchView('table')" id="btnTable" class="px-4 py-1 text-[10px] rounded-lg bg-white shadow-sm font-bold transition-all">TABLE VIEW</button>
-                            <button onclick="switchView('graph')" id="btnGraph" class="px-4 py-1 text-[10px] rounded-lg font-bold text-slate-500 hover:text-slate-700 transition-all">GRAPH VIEW</button>
+                            <button onclick="switchView('table')" id="btnTable" class="px-4 py-1 text-[10px] rounded-lg bg-white shadow-sm font-bold transition-all">TABLE</button>
+                            <button onclick="switchView('graph')" id="btnGraph" class="px-4 py-1 text-[10px] rounded-lg font-bold text-slate-500 hover:text-slate-700 transition-all">GRAPH</button>
                         </div>
                     </div>
                 </div>
@@ -75,10 +87,10 @@
                     <table class="matrix-table w-full text-left border-collapse text-center">
                         <thead class="sticky top-0 z-20">
                             <tr class="bg-slate-50 text-[9px] text-slate-500 uppercase font-black border-b">
-                                <th class="sticky-left min-w-[200px] bg-slate-50 text-left p-4 text-[10px]">Test Description (Unit)</th>
-                                <th class="min-w-[85px] bg-blue-50 text-blue-700 border-l italic">08/03/26</th>
-                                <th class="min-w-[85px] border-l italic text-slate-600">15/12/25</th>
-                                <th class="min-w-[85px] border-l italic text-slate-600">10/09/25</th>
+                                <th class="sticky-left min-w-[240px] bg-slate-50 text-left p-4">Test Description (Unit)</th>
+                                <th class="min-w-[85px] bg-blue-50 text-blue-700 border-l italic">08/03/26 (Today)</th>
+                                <th class="min-w-[85px] border-l italic">15/12/25</th>
+                                <th class="min-w-[85px] border-l italic">10/09/25</th>
                                 <th class="min-w-[85px] border-l italic text-slate-500">22/05/25</th>
                                 <th class="min-w-[85px] border-l italic text-slate-400">05/01/25</th>
                                 <th class="min-w-[85px] border-l italic text-slate-300">12/10/24</th>
@@ -95,7 +107,7 @@
 
                 <div id="emptyState" class="flex-1 flex flex-col items-center justify-center text-slate-300 gap-3 italic text-sm">
                     <i class="fa-solid fa-microscope text-5xl opacity-20"></i>
-                    <p>กรุณาเลือกรายการ Lab เพื่อวิเคราะห์ข้อมูล</p>
+                    <p>กรุณาเลือกรายการ Lab เพื่อวิเคราะห์ข้อมูลเปรียบเทียบ</p>
                 </div>
             </div>
         </div>
@@ -110,34 +122,56 @@
         </div>
     </div>
 
+    <div id="patientDashboard" class="dashboard-modal">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex gap-2" id="dashboardFilters">
+                    <button class="status-tab active">ทั้งหมด (7)</button>
+                    <button class="status-tab text-red-600 border-red-100">วิกฤต (2)</button>
+                    <button class="status-tab text-orange-600 border-orange-100">ผิดปกติ (3)</button>
+                    <button class="status-tab text-green-600 border-green-100">ปกติ (2)</button>
+                </div>
+                <button onclick="closeDashboard()" class="bg-slate-200 text-slate-600 h-10 w-10 rounded-full flex items-center justify-center hover:bg-slate-300 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div class="card-grid" id="dashboardGrid">
+                </div>
+        </div>
+    </div>
+
     <script>
         const clinicalDates = ['12/10/24', '05/01/25', '22/05/25', '10/09/25', '15/12/25', '08/03/26'];
 
         const allLabs = [
-            { id: 'CBC', group: 'Hematology', name: 'Complete Blood Count (CBC)', doctor: 'นพ.ชัยมงคล', today: true, isAbnormal: true, reported: true, od: '08/03/26 09:00', cd: '09:15', rd: '10:30', 
+            { id: 'CBC', group: 'Hematology', name: 'Complete Blood Count (CBC)', doctor: 'นพ.ชัยมงคล', today: true, reported: true, od: '08/03/26 09:00', cd: '09:15', rd: '10:30', isAbnormal: true,
                 data: [
-                    { item: 'Hemoglobin', unit: 'g/dL', values: ['14.5', '14.2', '14.0', '13.8', '13.5', '12.1 (L)'], ref: '13.0-17.0', alert: 'abnormal' },
-                    { item: 'WBC Count', unit: '10³/µL', values: ['7.8', '8.2', '8.5', '8.8', '9.2', '18.5 (VH)'], ref: '4.0-10.0', alert: 'critical' }
+                    { item: 'WBC Count', unit: '10³/µL', values: ['7.8','8.2','8.5','8.8','9.2','18.5 (VH)'], ref: '4-10', alert: 'critical', gaugePos: 90 },
+                    { item: 'Hemoglobin', unit: 'g/dL', values: ['14.5','14.2','14.0','13.8','13.5','12.1 (L)'], ref: '13-17', alert: 'abnormal', gaugePos: 25 }
+                ] 
+            },
+            { id: 'LIPID', group: 'BloodChem', name: 'Lipid Profile (Full Set)', doctor: 'นพ.ชัยมงคล', today: true, reported: true, od: '08/03/26 09:05', cd: '09:20', rd: '11:15', isAbnormal: true,
+                data: [
+                    { item: 'Total Cholesterol', unit: 'mg/dL', values: ['180','190','195','205','210','240 (H)'], ref: '< 200', alert: 'abnormal', gaugePos: 75 },
+                    { item: 'LDL Cholesterol', unit: 'mg/dL', values: ['110','125','135','145','160','192 (VH)'], ref: '< 130', alert: 'critical', gaugePos: 85 },
+                    { item: 'HDL Cholesterol', unit: 'mg/dL', values: ['45','48','50','45','42','35 (L)'], ref: '> 40', alert: 'abnormal', gaugePos: 20 },
+                    { item: 'Triglycerides', unit: 'mg/dL', values: ['120','130','140','145','140','165 (H)'], ref: '< 150', alert: 'abnormal', gaugePos: 70 }
+                ] 
+            },
+            { id: 'LIVER', group: 'BloodChem', name: 'Liver Panel (ALT/AST/ALP)', doctor: 'พญ.นลินี', today: true, reported: true, od: '08/03/26 09:10', cd: '09:25', rd: '12:00', isAbnormal: true,
+                data: [
+                    { item: 'ALT (SGPT)', unit: 'U/L', values: ['35','38','38','40','42','85 (H)'], ref: '0-41', alert: 'abnormal', gaugePos: 80 },
+                    { item: 'AST (SGOT)', unit: 'U/L', values: ['30','31','32','34','35','62 (H)'], ref: '0-40', alert: 'abnormal', gaugePos: 75 }
                 ]
             },
-            { id: 'LIPID', group: 'BloodChem', name: 'Lipid Profile (Full Set)', doctor: 'นพ.ชัยมงคล', today: true, isAbnormal: true, reported: true, od: '08/03/26 09:05', cd: '09:20', rd: '11:15', 
+            { id: 'KIDNEY', group: 'BloodChem', name: 'Kidney Function (BUN/Cr)', doctor: 'พญ.นลินี', today: true, reported: true, od: '08/03/26 09:12', cd: '09:30', rd: '11:00', isAbnormal: false,
                 data: [
-                    { item: 'LDL Cholesterol', unit: 'mg/dL', values: ['135', '140', '145', '155', '160', '192 (VH)'], ref: '< 130', alert: 'critical' },
-                    { item: 'HDL Cholesterol', unit: 'mg/dL', values: ['48', '50', '45', '42', '42', '35 (L)'], ref: '> 40', alert: 'abnormal' }
-                ]
+                    { item: 'BUN', unit: 'mg/dL', values: ['12','14','14','15','16','18'], ref: '7-20', alert: '', gaugePos: 50 },
+                    { item: 'Creatinine', unit: 'mg/dL', values: ['1.00','1.02','1.05','1.08','1.10','1.05'], ref: '0.7-1.2', alert: '', gaugePos: 45 }
+                ] 
             },
-            { id: 'KIDNEY', group: 'BloodChem', name: 'Kidney Function (BUN/Cr)', doctor: 'พญ.นลินี', today: true, isAbnormal: false, reported: true, od: '08/03/26 09:12', cd: '09:30', rd: '11:00', 
-                data: [
-                    { item: 'Creatinine', unit: 'mg/dL', values: ['1.00', '1.02', '1.05', '1.08', '1.10', '1.05'], ref: '0.7-1.2', alert: '' },
-                    { item: 'BUN', unit: 'mg/dL', values: ['10', '12', '14', '14', '16', '18'], ref: '7-20', alert: '' }
-                ]
-            },
-            { id: 'HBA1C', group: 'BloodChem', name: 'HbA1C (NCD Tracking)', doctor: 'นพ.ชัยมงคล', today: false, isAbnormal: true, reported: true, od: '15/12/25 10:00', cd: '10:15', rd: '14:20', 
-                data: [ { item: 'HbA1C', unit: '%', values: ['6.5', '6.8', '7.2', '7.0', '7.5', '-'], ref: '< 6.5', alert: 'abnormal' } ]
-            },
-            { id: 'HIV', group: 'Immunology', name: 'Anti-HIV (Screening)', doctor: 'พญ.มานิตา', today: false, isAbnormal: false, reported: true, od: '12/10/24 08:30', cd: '08:45', rd: '14:00', 
-                data: [ { item: 'HIV Ag/Ab', unit: '', values: ['Non-Reactive', '-', '-', '-', '-', '-'], ref: 'Non-Reactive', alert: '' } ]
-            }
+            { id: 'HBA1C', group: 'BloodChem', name: 'HbA1C tracking', doctor: 'นพ.ชัยมงคล', today: false, reported: true, od: '15/12/25 10:00', cd: '10:15', rd: '14:20', isAbnormal: true, data: [{ item: 'HbA1C', unit: '%', values: ['6.5','6.8','7.2','7.0','7.5','-'], ref: '< 6.5', alert: 'abnormal' }] }
         ];
 
         let pinnedIds = []; 
@@ -147,12 +181,15 @@
 
         function renderList() {
             const showAll = document.getElementById('toggleShowAll').checked;
+            const filterValue = document.getElementById('groupFilter').value;
             const container = document.getElementById('orderList');
             container.innerHTML = '';
             const groups = [...new Set(allLabs.map(lab => lab.group))];
             
             groups.forEach(groupName => {
-                const labsInGroup = allLabs.filter(lab => lab.group === groupName && (showAll || lab.today));
+                const labsInGroup = allLabs.filter(lab => 
+                    lab.group === groupName && (showAll || lab.today) && (filterValue === 'ALL' || lab.group === filterValue)
+                );
                 if (labsInGroup.length === 0) return;
 
                 const header = document.createElement('div');
@@ -163,29 +200,27 @@
                 labsInGroup.forEach(lab => {
                     const isPinned = pinnedIds.includes(lab.id);
                     const isPreview = previewId === lab.id;
-                    const isHistory = !lab.today;
                     const envIcon = lab.reported ? (lab.isAbnormal ? 'fa-envelope-open text-orange-400' : 'fa-envelope-open text-green-500') : '';
                     
                     const item = document.createElement('div');
-                    item.className = `lab-item-compact flex gap-3 items-center ${isHistory ? 'history-item' : ''} ${isPreview ? 'active-preview' : ''} ${isPinned && !isPreview ? 'bg-blue-50 border-l-4 border-blue-600' : ''} hover:bg-slate-50 cursor-pointer transition-all`;
+                    item.className = `lab-item-compact flex gap-3 items-center ${!lab.today ? 'history-item' : ''} ${isPreview ? 'active-preview' : ''} ${isPinned && !isPreview ? 'bg-blue-50 border-l-4 border-blue-600' : ''} hover:bg-slate-50 cursor-pointer transition-all`;
                     item.innerHTML = `
-                        <input type="checkbox" ${isPinned ? 'checked' : ''} onchange="togglePinned(event, '${lab.id}')" class="h-3.5 w-3.5 rounded">
+                        <input type="checkbox" ${isPinned ? 'checked' : ''} onchange="togglePinned(event, '${lab.id}')" class="h-3.5 w-3.5 rounded border-slate-300">
                         <div class="flex-1 min-w-0" onclick="setPreview('${lab.id}')">
-                            <div class="flex justify-between items-center">
+                            <div class="flex flex-row justify-between items-start mb-1">
                                 <div class="flex items-center gap-1 overflow-hidden">
-                                    <i class="fa-solid fa-chart-line text-[11px] text-blue-400"></i>
                                     <span class="font-bold text-slate-800 truncate text-[11px] uppercase tracking-tight">${lab.name}</span>
-                                    ${isHistory ? '<span class="badge-history">HISTORY</span>' : ''}
+                                    <span class="badge-status ${lab.today ? 'badge-today' : 'badge-history'} tracking-tighter">${lab.today ? 'TODAY' : 'HISTORY'}</span>
                                 </div>
-                                <div class="flex items-center gap-1.5">
+                                <div class="flex items-center gap-1.5 shrink-0 ml-2" style="min-width: 100px; justify-content: flex-end;">
                                     <span class="text-[9px] font-black text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded border border-blue-100">${lab.doctor}</span>
-                                    ${envIcon ? `<i onclick="openEnvelope(event, '${lab.id}')" class="fa-solid ${envIcon} text-[15px] hover:scale-125 transition-transform"></i>` : ''}
+                                    ${envIcon ? `<i onclick="openEnvelope(event, '${lab.id}')" class="fa-solid ${envIcon} text-[14px] cursor-pointer"></i>` : ''}
                                 </div>
                             </div>
-                            <div class="timeline-mini uppercase">
+                            <div class="timeline-mini">
                                 <span class="time-node">O: ${lab.od.split(' ')[0]}</span>
                                 <span class="time-node cd-focus">C: ${lab.cd}</span>
-                                ${lab.rd ? `<span class="time-node font-bold">R: ${lab.rd}</span>` : ''}
+                                ${lab.reported ? `<span class="time-node font-bold">R: ${lab.rd}</span>` : ''}
                             </div>
                         </div>`;
                     container.appendChild(item);
@@ -201,37 +236,20 @@
             const empty = document.getElementById('emptyState');
             let displayIds = [...pinnedIds];
             if (previewId && !pinnedIds.includes(previewId)) displayIds.push(previewId);
-            
             body.innerHTML = '';
             if (displayIds.length === 0) { empty.style.display = 'flex'; return; }
             empty.style.display = 'none';
 
-            const selectedLabs = allLabs.filter(l => displayIds.includes(l.id)).sort((a, b) => a.group.localeCompare(b.group));
-            let currentGroup = "";
-
-            selectedLabs.forEach(lab => {
-                if (lab.group !== currentGroup) {
-                    const groupTr = document.createElement('tr');
-                    groupTr.className = "sub-group-marker";
-                    groupTr.innerHTML = `<td colspan="8" class="p-2 px-5 bg-slate-100/80 text-left"><i class="fa-solid fa-folder-open mr-2 opacity-50"></i> ${lab.group}</td>`;
-                    body.appendChild(groupTr);
-                    currentGroup = lab.group;
-                }
-
+            allLabs.filter(l => displayIds.includes(l.id)).forEach(lab => {
                 lab.data.forEach(row => {
                     const tr = document.createElement('tr');
-                    tr.className = "hover:bg-slate-50 transition-colors";
+                    tr.className = "hover:bg-slate-50 transition-colors text-center";
                     tr.innerHTML = `
-                        <td class="p-4 sticky-left font-bold border-r bg-white text-left text-slate-700">
-                            ${row.item} <span class="text-[9px] text-slate-400 italic">(${row.unit})</span>
-                        </td>
-                        <td class="border-l bg-blue-50/20 ${row.alert}">${row.values[5]}</td>
-                        <td class="border-l">${row.values[4]}</td>
-                        <td class="border-l text-slate-500">${row.values[3]}</td>
-                        <td class="border-l text-slate-400 italic">${row.values[2]}</td>
-                        <td class="border-l text-slate-400 italic">${row.values[1]}</td>
-                        <td class="border-l text-slate-300 italic">${row.values[0]}</td>
-                        <td class="border-l text-slate-600 font-bold">${row.ref}</td>`;
+                        <td class="p-4 sticky-left font-bold border-r bg-white text-left text-slate-700">${row.item} <span class="text-[9px] text-slate-400">(${row.unit})</span></td>
+                        <td class="border-l bg-blue-50/10 ${row.alert}">${row.values[5]}</td>
+                        <td class="border-l">${row.values[4]}</td><td class="border-l">${row.values[3]}</td>
+                        <td class="border-l">${row.values[2]}</td><td class="border-l">${row.values[1]}</td>
+                        <td class="border-l">${row.values[0]}</td><td class="border-l font-bold">${row.ref}</td>`;
                     body.appendChild(tr);
                 });
             });
@@ -240,8 +258,6 @@
 
         function switchView(mode) {
             currentView = mode;
-            document.getElementById('btnTable').className = mode === 'table' ? 'px-4 py-1 text-[10px] rounded-lg bg-white shadow-sm font-bold' : 'px-4 py-1 text-[10px] rounded-lg font-bold text-slate-500';
-            document.getElementById('btnGraph').className = mode === 'graph' ? 'px-4 py-1 text-[10px] rounded-lg bg-white shadow-sm font-bold text-blue-700' : 'px-4 py-1 text-[10px] rounded-lg font-bold text-slate-500';
             document.getElementById('tableView').classList.toggle('hidden', mode !== 'table');
             document.getElementById('graphView').classList.toggle('hidden', mode !== 'graph');
             if (mode === 'graph') updateGraphs();
@@ -252,47 +268,71 @@
             container.innerHTML = '';
             activeCharts.forEach(c => c.destroy());
             activeCharts = [];
-
             let displayIds = [...pinnedIds];
             if (previewId && !pinnedIds.includes(previewId)) displayIds.push(previewId);
             
             displayIds.forEach(id => {
                 const lab = allLabs.find(l => l.id === id);
-                if (lab) {
+                if (lab && lab.reported) {
                     const wrapper = document.createElement('div');
                     wrapper.className = 'graph-stack-item shadow-sm';
-                    wrapper.innerHTML = `<div class="text-[11px] font-black text-slate-700 uppercase mb-2 border-b pb-1 flex justify-between"><span>${lab.name}</span><span class="text-blue-600">${lab.doctor}</span></div><canvas id="chart-${lab.id}"></canvas>`;
+                    wrapper.innerHTML = `<div class="text-[10px] font-black text-slate-700 uppercase mb-2 border-b pb-1 flex justify-between"><span>${lab.name}</span></div><canvas id="chart-${lab.id}"></canvas>`;
                     container.appendChild(wrapper);
-
-                    const datasets = lab.data.map((it, idx) => ({
-                        label: it.item,
-                        data: it.values.map(v => parseFloat(v.split(' ')[0]) || null),
-                        borderColor: ['#2563eb', '#dc2626', '#16a34a', '#d97706'][idx % 4],
-                        tension: 0.3,
-                        borderWidth: 2.5,
-                        pointRadius: 4
-                    }));
-
                     activeCharts.push(new Chart(document.getElementById(`chart-${lab.id}`).getContext('2d'), {
-                        type: 'line',
-                        data: { labels: clinicalDates, datasets: datasets },
-                        options: { 
-                            maintainAspectRatio: false, 
-                            plugins: { legend: { position: 'right', labels: { font: { size: 9, weight: 'bold' } } } },
-                            scales: { x: { ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } }
-                        }
+                        type: 'line', data: { labels: clinicalDates, datasets: lab.data.map((it, idx) => ({
+                            label: it.item, data: it.values.map(v => parseFloat(v) || null), borderColor: ['#2563eb','#dc2626','#16a34a'][idx % 3], tension: 0.3
+                        }))},
+                        options: { maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
                     }));
                 }
             });
         }
 
-        function openEnvelope(e, id) {
-            e.stopPropagation();
-            const lab = allLabs.find(l => l.id === id);
-            document.getElementById('dialogContent').innerHTML = `<div class="flex justify-between border-b pb-4 mb-4"><h4 class="text-lg font-black text-slate-900 uppercase underline decoration-blue-500 decoration-4 underline-offset-8">${lab.name}</h4><div class="text-right text-[10px] font-mono">ORDER: ${lab.od}<br>COLLECT: ${lab.cd}<br>RES: FINAL</div></div><table class="w-full text-xs"><thead><tr class="bg-slate-900 text-slate-300 font-black"><td class="p-2">Analysis</td><td class="p-2 text-center">Result</td><td class="p-2 text-center">Ref.</td></tr></thead><tbody>${lab.data.map(d => `<tr><td class="p-2 border-b font-bold">${d.item}</td><td class="p-2 border-b text-center font-black ${d.alert}">${d.values[5] || d.values[4]}</td><td class="p-2 border-b text-center text-slate-400 italic">${d.ref}</td></tr>`).join('')}</tbody></table>`;
-            document.getElementById('resultDialog').classList.remove('hidden');
+        /* --- DASHBOARD LOGIC (New) --- */
+        function openDashboard() {
+            const grid = document.getElementById('dashboardGrid');
+            grid.innerHTML = '';
+            document.getElementById('patientDashboard').style.display = 'block';
+
+            allLabs.filter(lab => lab.today).forEach(lab => {
+                lab.data.forEach(item => {
+                    const statusColor = item.alert === 'critical' ? '#dc2626' : (item.alert === 'abnormal' ? '#d97706' : '#16a34a');
+                    const statusText = item.alert === 'critical' ? 'วิกฤต' : (item.alert === 'abnormal' ? 'ผิดปกติ' : 'ปกติ');
+                    const badgeClass = item.alert === 'critical' ? 'bg-red-50 text-red-600' : (item.alert === 'abnormal' ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600');
+                    
+                    const card = document.createElement('div');
+                    card.className = 'lab-card';
+                    card.innerHTML = `
+                        <div>
+                            <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${lab.group}</div>
+                            <div class="flex justify-between items-start mt-1">
+                                <span class="text-sm font-black text-slate-800 leading-tight">${item.item}</span>
+                                <span class="${badgeClass} text-[8px] px-2 py-0.5 rounded-full font-bold shrink-0">${statusText}</span>
+                            </div>
+                        </div>
+                        <div class="gauge-container">
+                            <svg viewBox="0 0 100 55" class="w-full">
+                                <path d="M 10 50 A 40 40 0 0 1 90 50" class="gauge-bg" />
+                                <line x1="50" y1="50" x2="50" y2="10" class="gauge-needle" 
+                                      style="transform-origin: 50px 50px; transform: rotate(${(item.gaugePos || 50) - 90}deg); stroke: ${statusColor};" />
+                            </svg>
+                            <div class="absolute bottom-0 inset-x-0 text-center">
+                                <div class="text-3xl font-black leading-none" style="color: ${statusColor}">${item.values[5]}</div>
+                                <div class="text-[9px] text-slate-400 font-bold mt-1 uppercase">${item.unit} (ปกติ: ${item.ref})</div>
+                            </div>
+                        </div>
+                        <div class="text-[10px] text-slate-500 border-t pt-3 flex gap-2">
+                            <i class="fa-solid fa-circle-info mt-0.5 opacity-50"></i>
+                            <span>${item.alert === 'critical' ? 'พบความผิดปกติในระดับสูง ควรปรึกษาแพทย์ทันที' : 'ค่าอยู่ในเกณฑ์ที่ต้องเฝ้าระวังและติดตามผล'}</span>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            });
         }
 
+        function closeDashboard() { document.getElementById('patientDashboard').style.display = 'none'; }
+        function openEnvelope(e, id) { /* Original Function */ e.stopPropagation(); const lab = allLabs.find(l => l.id === id); document.getElementById('dialogContent').innerHTML = `<div class="flex justify-between border-b pb-4 mb-4"><h4 class="text-lg font-black text-slate-900 uppercase underline decoration-blue-500 decoration-4 underline-offset-8">${lab.name}</h4><div class="text-right text-[10px] font-mono">ORDER: ${lab.od}<br>COLLECT: ${lab.cd}<br>RES: FINAL</div></div><table class="w-full text-xs"><thead><tr class="bg-slate-900 text-slate-300 font-black\"><td class="p-2">Analysis</td><td class=\"p-2 text-center\">Result</td><td class=\"p-2 text-center\">Ref. Range</td></tr></thead><tbody>${lab.data.map(d => `<tr><td class=\"p-3 border-b font-bold\">${d.item}</td><td class=\"p-3 border-b text-center font-black ${d.alert}\">${d.values[5] || d.values[4]}</td><td class=\"p-3 border-b text-center text-slate-400 italic\">${d.ref}</td></tr>`).join('')}</tbody></table>`; document.getElementById('resultDialog').classList.remove('hidden'); }
         function closeDialog() { document.getElementById('resultDialog').classList.add('hidden'); }
         window.onload = () => { renderList(); setPreview('CBC'); };
     </script>
